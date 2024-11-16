@@ -12,11 +12,11 @@ export class Server{
 
     private app=express()
     private readonly port:number
-    private readonly publicPath:string
+    private readonly publicPath?:string
 
     //costructor para el server
     constructor(options: Options){
-        const {port , publicPath} = options
+        const {port , publicPath = 'public'} = options
         this.port = port
         this.publicPath = publicPath
 
@@ -25,7 +25,7 @@ export class Server{
      async start(){
 
         //public folder
-        this.app.use(express.static(this.publicPath))
+        this.app.use(express.static(this.publicPath || 'public'))
 
 
         this.app.get('*' ,(req,res)=>{
