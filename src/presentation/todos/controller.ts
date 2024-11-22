@@ -1,4 +1,6 @@
 import { Request, Response } from "express";
+import { prisma } from "../../data/postgres";
+import { CreateTodoDto, UdateTodoDto } from "../../domain/dtos";
 
 interface Product {
   id: number;
@@ -6,29 +8,23 @@ interface Product {
   createAt: Date | null;
 }
 
- const todos: Product[] = [
-  { id: 1, text: "buy milk", createAt: new Date() },
-  { id: 2, text: "buy milk", createAt: null },
-  { id: 3, text: "buy milk", createAt: null },
-  { id: 4, text: "buy milk", createAt: null },
-  { id: 5, text: "buy milk", createAt: null },
-];
 
 export class TodosController {
   //*
   constructor() {}
 
-  public getTodos = (req: Request, res: Response) => {
-    res.json(todos);
+  public getTodos = async (req: Request, res: Response) => {
+    const data = await prisma.todo.findMany()
+    res.json(data);
   };
 
-  public getTodoById = (req: Request, res: Response): void => {
+  public getTodoById = async (req: Request, res: Response) => {
     const id = +req.params.id;
 
     if (isNaN(id)) throw res.status(400).json({ error: "Invalid parameter" });
 
-    const todo = todos.find((todo) => todo.id === id);
-
+   // const todo = todos.find((todo) => todo.id === id);
+    const todo = await prisma.todo.findFirst({ where: {id: id} });
     if (todo) {
       res.json(todo);
     } else {
@@ -36,55 +32,59 @@ export class TodosController {
     }
   };
 
-  public createTodo(req: Request, res: Response): void {
-    if (!req.body.text)
-      throw res.status(400).json({ error: "text property is required" });
+  public createTodo= async(req: Request, res: Response)=>{
 
-    const newTodo: Product = {
-      id: todos.length + 1,
-      text: req.body.text,
-      createAt: new Date()
-    };
+    const [error, createTodoDto]= CreateTodoDto.create(req.body)
 
-    todos.push(newTodo);
+    if (error) throw res.status(400).json({ error: "text property is required" });
 
-    res.json(newTodo);
-  }
 
-  public updateTodo(req: Request, res: Response) {
-    const id = +req.params.id;
-    if (isNaN(id)) throw res.status(400).json({ error: "Invalid parameter" });
-
-    const todo = todos.find((todo) => todo.id === id);
-
-    if (!todo) throw res.status(404).json({ error: "TODO not found" });
-
-    const { text, createAt } = req.body;
-
-    if (!text)
-      throw res.status(400).json({ error: "Text propperty is required" });
-
-    todo.text = text || todo.text;
-    createAt === "null"
-      ? (todo.createAt = null)
-      : (todo.createAt = new Date(createAt || todo.createAt));
+    const todo = await prisma.todo.create({
+      data:createTodoDto
+    })
 
     res.json(todo);
   }
 
-  public deleteTodo(req: Request, res: Response){
-      const id = +req.params.id;
-       const idReq= todos.find(todo => todo.id === id)
-       console.log(idReq)
+  public updateTodo= async(req: Request, res: Response) =>{
+    const id = +req.params.id;
+    
+    const [error ,udateTodoDto]= UdateTodoDto.create({...req.body, id})
+        if(error)  throw res.status(400).json({error})
 
-       if(!idReq) throw res.status(404).json({error: "Not Found"});
+    try {
+      const todo= await prisma.todo.findFirst({where:{id: id}});
+    
+      if (!todo) throw res.status(404).json({ error: "TODO not found" });
+         
+    
+      const updateTodo = await prisma.todo.update({
+           where: {id: id},
+           data: udateTodoDto!.values
+      } );
+      
+      res.json(updateTodo);
+      
+    } catch (error) {
+         throw res.status(400).json({error})
+    }
+
+  }
+
+  public deleteTodo= async (req: Request, res: Response)=>{
+      const id = +req.params.id;
+
+       const deleteTodo= await prisma.todo.delete({where: {id:id}
+       })
+
+       if(!deleteTodo) throw res.status(404).json({error: "Not Found"});
 
       if(isNaN(id)) throw res.status(400).json({ error: "invalid id" });
       
-      const todo = todos.filter(todo => todo.id !== id)
-      todos.splice(todos.indexOf(idReq),1)
+     // const todo = todos.filter(todo => todo.id !== id)
+     // todos.splice(todos.indexOf(idReq),1)
       
        
-      res.json(idReq);
+      res.json(deleteTodo);
   }
 }
